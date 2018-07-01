@@ -246,7 +246,7 @@ cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
 systemctl restart fail2ban.service
 }
 
-function monit() {
+function monitoring() {
  echo -e "Please type email for notifications"
  read -e EMAIL
   cat << EOF >> /etc/monit/monitrc
@@ -256,7 +256,7 @@ set httpd port 2812
   allow localhost
 EOF
 
-  cat << EOF > /etc/monit/monitrc.d/fail2ban
+  cat << fail > /etc/monit/monitrc.d/fail2ban
 check process fail2ban with pidfile /var/run/fail2ban/fail2ban.pid
     group services
     start program = "/etc/init.d/fail2ban force-start"
@@ -266,7 +266,7 @@ check process fail2ban with pidfile /var/run/fail2ban/fail2ban.pid
 
 check file fail2ban_log with path /var/log/fail2ban.log
     if match "ERROR|WARNING" then alert
-EOF
+fail
 
 ln -s /etc/monit/monitrc.d/fail2ban /etc/monit/conf-enabled/fail2ban
 ln -s /etc/monit/conf-available/cron /etc/monit/conf-enabled/cron
@@ -310,7 +310,7 @@ function request_cert(){
   systemctl stop $COINUSER.service
   sleep 3
   systemctl start $COINUSER.service
-  $COINCLI getnetworkinfo
+  sudo -H -u $COINUSER $BIN_TARGET/$COINCLI getnetworkinfo
 }
 
 function setup_node() {
@@ -321,7 +321,7 @@ function setup_node() {
   enable_firewall
   important_information
   fail2ban
-  monit
+  monitoring
   motd
   request_cert
   systemd_install
