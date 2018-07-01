@@ -13,13 +13,10 @@ COINDAEMON="zend"
 COINCLI="zen-cli"
 CONFIG_FILE="zen.conf"
 COIN_REPO="https://github.com/ArcticCore/arcticcoin.git"
-COINDAEMON_VERSION="0.12.2"
-COINDAEMON_ZIPFILE="${DEFAULTORGANAME}-${COINDAEMON_VERSION}-linux64.tar.gz"
-COINDAEMON_ZIPURL="https://github.com/ArcticCore/arcticcoin/releases/download/v0.12.1.2/${COINDAEMON_ZIPFILE}"
 FQDN=zen1.crypto-pool.net
 
 TMP_FOLDER=$(mktemp -d)
-BIN_TARGET="/usr/local/bin"
+BIN_TARGET="/usr/bin"
 BINARY_FILE="${BIN_TARGET}/${COINDAEMON}"
 
 RED='\033[0;31m'
@@ -50,7 +47,7 @@ if [ -n "$(pidof $COINDAEMON)" ]; then
   echo -e "${GREEN}\c"
   read -e -p "$COINDAEMON is already running. Do you want to add another MN? [Y/N]" NEW_COIN
   echo -e "{NC}"
-  clear
+  
 else
   NEW_COIN="new"
 fi
@@ -58,7 +55,7 @@ fi
 
 function prepare_system() {
 
-echo -e "Prepare the system to install $COINTITLE master node."
+echo -e "Prepare the system to install $COINTITLE secure node."
 apt-get update >/dev/null 2>&1
 DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -y -qq upgrade >/dev/null 2>&1
 apt install -y software-properties-common >/dev/null 2>&1
@@ -71,7 +68,7 @@ apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--fo
 build-essential libtool autoconf libssl-dev libboost-dev libboost-chrono-dev libboost-filesystem-dev libboost-program-options-dev \
 libboost-system-dev libboost-test-dev libboost-thread-dev sudo automake git wget pwgen curl monit libdb4.8-dev bsdmainutils \
 libdb4.8++-dev libminiupnpc-dev libgmp3-dev ufw automake libevent-dev libzmq3-dev \
-apt-transport-https lsb-release dirmngr ssl-cert jq npm 
+apt-transport-https lsb-release dirmngr ssl-cert jq npm
 
 
 if [ "$?" -gt "0" ];
@@ -106,22 +103,17 @@ fi
 }
 
 function deploy_binaries() {
-echo -e "${GREEN}Adding zencash PPA repository"
+echo -e "${GREEN}Adding zencash PPA repository${NC}"
 echo 'deb https://zencashofficial.github.io/repo/ '$(lsb_release -cs)' main' | sudo tee --append /etc/apt/sources.list.d/zen.list
 gpg --keyserver ha.pool.sks-keyservers.net --recv 219F55740BBF7A1CE368BA45FB7053CE4991B669
-gpg --keyserver keyserver.ubuntu.com  --recv 219F55740BBF7A1CE368BA45FB7053CE4991B669
+gpg --export 219F55740BBF7A1CE368BA45FB7053CE4991B669 | sudo apt-key add -
 
-echo -e "${GREEN}Adding certbot PPA repository"
+echo -e "${GREEN}Adding certbot PPA repository${NC}"
 add-apt-repository ppa:certbot/certbot -y
+apt-get update >/dev/null 2>&1
 apt install -y zen certbot
-sudo -H -u $COINUSER bash -c 'zen-fetch-params' 
-sudo -H -u $COINUSER bash -c 'zend' 
-}
-
-function ask_permission() {
- echo -e "${RED}I trust you and want to use binaries compiled on your server.${NC}."
- echo -e "Please type ${RED}YES${NC} if you want to use precompiled binaries, or type anything else to compile them on your server"
- read -e ALREADYCOMPILED
+sudo -H -u $COINUSER ${BIN_TARGET}/zen-fetch-params
+sudo -H -u $COINUSER ${BIN_TARGET}/${COINDAEMON}
 }
 
 function enable_firewall() {
@@ -169,7 +161,7 @@ EOF
   systemctl enable $COINUSER.service >/dev/null 2>&1
 
   if [[ -z $(pidof $COINDAEMON) ]]; then
-    echo -e "${RED}Arcticcoind is not running${NC}, please investigate. You should start by running the following commands as root:"
+    echo -e "${RED}${COINDAEMON} is not running${NC}, please investigate. You should start by running the following commands as root:"
     echo "systemctl start $COINUSER.service"
     echo "systemctl status $COINUSER.service"
     echo "less /var/log/syslog"
@@ -188,7 +180,7 @@ function ask_user() {
 
   if [ -z "$(getent passwd $COINUSER)" ]; then
     useradd -m $COINUSER
-    usermode -aG adm,systemd-journal,sudo $COINUSER
+    usermod -aG adm,systemd-journal,sudo $COINUSER
     COINHOME=$(sudo -H -u $COINUSER bash -c 'echo $HOME')
     DEFAULTCOINFOLDER="${COINHOME}/.${DEFAULTORGANAME}"
     read -p "Configuration folder: " -i $DEFAULTCOINFOLDER -e COINFOLDER
@@ -199,7 +191,6 @@ function ask_user() {
     USERPASS=$(tr -cd '[:alnum:]' < /dev/urandom | fold -w12 | head -n1)
     echo "$COINUSER:$USERPASS" | chpasswd
   else
-    clear
     echo -e "${RED}User exits. Please enter another username: ${NC}"
     ask_user
   fi
@@ -211,7 +202,7 @@ function check_port() {
   ask_port
 
   while [[ ${PORTS[@]} =~ $COINPORT ]] || [[ ${PORTS[@]} =~ $[COINPORT+1] ]]; do
-    clear
+    
     echo -e "${RED}Port in use, please choose another port:${NF}"
     ask_port
   done
@@ -245,14 +236,14 @@ function important_information() {
  echo -e "Start: ${RED}systemctl start $COINUSER.service${NC}"
  echo -e "Stop: ${RED}systemctl stop $COINUSER.service${NC}"
  echo -e "VPS_IP:PORT ${RED}$NODEIP:$COINPORT${NC}"
- echo -e "MASTERNODE PRIVATEKEY is: ${RED}$COINKEY${NC}"
+ echo -e "FQDN is: ${RED}$FQDN${NC}"
  echo -e "================================================================================================================================"
 }
 
 function fail2ban() {
-sudo apt install -y fail2ban
-sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
-sudo systemctl restart fail2ban.service
+apt install -y fail2ban
+cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+systemctl restart fail2ban.service
 }
 
 function monit() {
@@ -281,7 +272,6 @@ ln -s /etc/monit/monitrc.d/fail2ban /etc/monit/conf-enabled/fail2ban
 ln -s /etc/monit/conf-available/cron /etc/monit/conf-enabled/cron
 ln -s /etc/monit/conf-available/openssh-server /etc/monit/conf-enabled/openssh-server
 
-
 monit reload
 monit -t
 monit start all
@@ -290,8 +280,8 @@ monit start all
 function motd() {
   cat << EOF > /etc/update-motd.d/99-${DEFAULTCOINUSER}
 #!/bin/bash
-printf "\n${COINCLI} goldminenode status\n"
-sudo -u $COINUSER $BIN_TARGET/$COINCLI -conf=$COINFOLDER/$CONFIG_FILE -datadir=$COINFOLDER goldminenode status
+printf "\n${COINCLI} getnetworkinfo\n"
+sudo -u $COINUSER bash -c '$COINCLI getnetworkinfo'
 printf "\n"
 EOF
 chmod +x /etc/update-motd.d/99-${DEFAULTCOINUSER}
@@ -312,9 +302,9 @@ function request_cert(){
   certbot certonly -n --agree-tos --register-unsafely-without-email --standalone -d $FQDN
   cp /etc/letsencrypt/live/$FQDN/chain.pem /usr/local/share/ca-certificates/chain.crt
   update-ca-certificates
-  echo "tlscertpath=/etc/letsencrypt/live/$FQDN/cert.pem" >> ~/.zen/zen.conf
-  echo "tlskeypath=/etc/letsencrypt/live/$FQDN/privkey.pem" >> ~/.zen/zen.conf
-  usermode -aG ssl-cert $COINUSER
+  echo "tlscertpath=/etc/letsencrypt/live/$FQDN/cert.pem" >> $COINFOLDER/$CONFIG_FILE
+  echo "tlskeypath=/etc/letsencrypt/live/$FQDN/privkey.pem" >> $COINFOLDER/$CONFIG_FILE
+  usermod -aG ssl-cert $COINUSER
   chown -R root:ssl-cert /etc/letsencrypt/
   chmod -R 750 /etc/letsencrypt/
   systemctl stop $COINUSER.service
@@ -325,35 +315,27 @@ function request_cert(){
 
 function setup_node() {
   ask_user
+  deploy_binaries
   check_port
   create_config
   enable_firewall
-  secure_sshd
-  systemd_install
-  request_cert
   important_information
   fail2ban
   monit
   motd
+  request_cert
+  systemd_install
   challange_test
+  secure_sshd
 }
 
-
 ##### Main #####
-clear
-
 checks
 if [[ ("$NEW_COIN" == "y" || "$NEW_COIN" == "Y") ]]; then
   setup_node
   exit 0
 elif [[ "$NEW_COIN" == "new" ]]; then
   prepare_system
-  ask_permission
-  if [[ "$ALREADYCOMPILED" == "YES" ]]; then
-    deploy_binaries
-  else
-    compile_arcticcoin
-  fi
   setup_node
 else
   echo -e "${GREEN}$COINDAEMON already running.${NC}"
