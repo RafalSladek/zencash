@@ -31,7 +31,6 @@ if [ "$?" -gt "0" ];
 fi
 }
 
-
 function checks() {
 if [[ $(lsb_release -d) != *16.04* ]]; then
   echo -e "${RED}You are not running Ubuntu 16.04. Installation is cancelled.${NC}"
@@ -363,8 +362,8 @@ function request_cert(){
 
 function secnodetracker(){
   apt-get install npm -y && npm install -g n && n latest
-  sudo -H -u COINUSER bash -c 'mkdir -p $COINHOME/zencash && cd $COINHOME/zencash && git clone https://github.com/ZencashOfficial/secnodetracker.git'
-  
+  sudo -H -u COINUSER bash -c 'mkdir -p $COINHOME/zencash && cd $COINHOME/zencash && git clone https://github.com/ZencashOfficial/secnodetracker.git && cd secnodetracker && npm i'
+
 }
 function setup_node() {
   ask_user
