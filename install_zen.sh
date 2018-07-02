@@ -280,6 +280,8 @@ function important_information() {
  echo -e "Stop: ${RED}systemctl stop $COINUSER.service${NC}"
  echo -e "VPS_IP:PORT ${RED}$NODEIP:$COINPORT${NC}"
  echo -e "FQDN is: ${RED}$FQDN${NC}"
+ echo -e "How to generate t_address: ${RED}zen-cli getnewaddress > /dev/null && zen-cli listaddresses | jq -r '.[1]'{NC}"
+ echo -e "How to split tx to two z_addresses: ${RED}zen-cli z_sendmany $(zen-cli listaddresses | jq -r '.[1]') '[{"address": "'$(zen-cli z_getnewaddress)'", "amount": 0,06890999},{"address": "'$(zen-cli z_getnewaddress)'", "amount": 0,06890999}]'{NC}"
  echo -e "================================================================================================================================"
 }
 
