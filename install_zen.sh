@@ -132,7 +132,7 @@ function enable_firewall() {
 function systemd_install() {
   cat << EOF > /etc/systemd/system/$COINUSER.service
 [Unit]
-Description=$COINTITLE service
+Description=$COINTITLE daemon
 After=network.target
 
 [Service]
@@ -153,6 +153,50 @@ StartLimitBurst=5
   
 [Install]
 WantedBy=multi-user.target
+EOF
+
+
+cat <<EOF > /etc/systemd/system/zentracker.service
+[Unit]
+Description=$COINTITLE node daemon installed on $COINHOME/zencash/secnodetracker/
+Requires=$COINUSER.service
+After=$COINUSER.service
+ 
+[Service]
+User=$COINUSER
+Group=$COINUSER
+Type=simple
+WorkingDirectory=$COINHOME/zencash/secnodetracker/
+ExecStart=/usr/local/bin/node $COINHOME/zencash/secnodetracker/app.js
+Restart=always
+RestartSec=10
+ 
+[Install]
+WantedBy=multi-user.target
+EOF
+
+
+cat <<EOF > /etc/systemd/system/zenupdate.service
+[Unit]
+Description=zenupdate.service
+ 
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/certbot -q renew --deploy-hook "systemctl restart zend"
+PrivateTmp=true
+EOF
+
+cat <<EOF > /etc/systemd/system/zenupdate.timer
+[Unit]
+Description=Run zenupdate unit daily @ 06:00:00 (UTC)
+ 
+[Timer]
+OnCalendar=*-*-* 06:00:00
+Unit=zenupdate.service
+Persistent=true
+ 
+[Install]
+WantedBy=timers.target
 EOF
 
   systemctl daemon-reload
@@ -282,6 +326,9 @@ function motd() {
 #!/bin/bash
 printf "\n${COINCLI} getnetworkinfo\n"
 sudo -u $COINUSER bash -c '$COINCLI getnetworkinfo'
+
+printf "\n${COINCLI} getinfo\n"
+sudo -u $COINUSER bash -c '$COINCLI getinfo'
 printf "\n"
 EOF
 chmod +x /etc/update-motd.d/99-${DEFAULTCOINUSER}
@@ -313,6 +360,12 @@ function request_cert(){
   sudo -H -u $COINUSER $BIN_TARGET/$COINCLI getnetworkinfo
 }
 
+
+function secnodetracker(){
+  apt-get install npm -y && npm install -g n && n latest
+  sudo -H -u COINUSER bash -c 'mkdir -p $COINHOME/zencash && cd $COINHOME/zencash && git clone https://github.com/ZencashOfficial/secnodetracker.git'
+  
+}
 function setup_node() {
   ask_user
   deploy_binaries
@@ -324,6 +377,7 @@ function setup_node() {
   monitoring
   motd
   request_cert
+  secnodetracker
   systemd_install
   challange_test
   secure_sshd
